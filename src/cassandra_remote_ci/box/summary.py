@@ -82,8 +82,9 @@ def write_failures(files: RunFiles, failures: list[dict], crashed: list[dict]) -
     files.crashed.write_text("".join(_crash_line(item) + "\n" for item in crashed))
 
 
-def usage_table(usage: dict) -> list[str]:
-    """Return how busy the box's CPUs and memory were while jobs ran, as far as usage.json knows."""
+def usage_table(usage: dict, budget: int | None) -> list[str]:
+    """Return how busy the box's CPUs and memory were while jobs ran, and how much of the memory budget the jobs
+    reserved, as far as usage.json knows."""
     if usage.get("cpu_average") is None:
         return []
 
@@ -93,13 +94,18 @@ def usage_table(usage: dict) -> list[str]:
     def size(key: str) -> str:
         return gigabytes(usage[key]) if usage.get(key) else "-"
 
-    return [
+    cpus = f"{usage['cpus']} CPUs" if usage.get("cpus") else "-"
+    lines = [
         "",
         "| box while jobs ran | average | peak | total |",
         "|---|---|---|---|",
-        f"| CPU | {percent('cpu_average')} | {percent('cpu_peak')} | - |",
+        f"| CPU | {percent('cpu_average')} | {percent('cpu_peak')} | {cpus} |",
         f"| memory | {size('memory_average')} | {size('memory_peak')} | {size('memory_total')} |",
     ]
+    if usage.get("reserved_average") is not None:
+        lines.append(f"| reserved | {size('reserved_average')} | {size('reserved_peak')} | "
+                     f"{gigabytes(budget) if budget else '-'} |")
+    return lines
 
 
 def write_summary(files: RunFiles, snapshot: dict, failures: list[dict], crashed: list[dict]) -> None:
@@ -116,7 +122,7 @@ def write_summary(files: RunFiles, snapshot: dict, failures: list[dict], crashed
         f"{' with uncommitted changes' if info.get('dirty') else ''}.",
         f"Phase {snapshot['phase']}, elapsed {duration(snapshot['elapsed'])}.",
     ]
-    lines += usage_table(read_json(files.usage, {}))
+    lines += usage_table(read_json(files.usage, {}), info.get("memory_budget"))
     lines += [
         "",
         "| group | jobs | classes | tests | failures | errors | skipped | memory | peak memory |",

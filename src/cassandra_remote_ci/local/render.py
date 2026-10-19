@@ -58,11 +58,13 @@ def box_table(data: dict) -> list[str]:
 
     rows = []
     if usage.get("cpu") is not None:
-        rows.append(["CPU", percent("cpu"), percent("cpu_average"), percent("cpu_peak"), "-"])
+        cpus = f"{usage['cpus']} CPUs" if usage.get("cpus") else "-"
+        rows.append(["CPU", percent("cpu"), percent("cpu_average"), percent("cpu_peak"), cpus])
     if usage.get("memory_total"):
         rows.append(["memory", size("memory_used"), size("memory_average"), size("memory_peak"), size("memory_total")])
     if data.get("memory_budget"):
-        rows.append(["reserved", gigabytes(data["memory_reserved"]), "-", "-", gigabytes(data["memory_budget"])])
+        rows.append(["reserved", gigabytes(data["memory_reserved"]), size("reserved_average"), size("reserved_peak"),
+                     gigabytes(data["memory_budget"])])
     return table(["BOX", "NOW", "AVERAGE", "PEAK", "TOTAL"], rows, right={1, 2, 3, 4}) if rows else []
 
 

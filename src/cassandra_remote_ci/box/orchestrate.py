@@ -247,7 +247,7 @@ class Orchestrator:
     def execute(self, slot: int, job: Job, work_dir: Path, classes: list[str] | None) -> tuple[int, junit.Counts, list]:
         """Run a job or part in a slot, collect its results into work_dir, and write counts.json and failures.json."""
         slot_dir = slot_path(self.ctx, slot)
-        self.usage.watch(work_dir)
+        self.usage.watch(work_dir, self.plugin.job_memory(self.ctx, job))
         try:
             exit_code = self.plugin.run_job(self.ctx, slot_dir, job, work_dir, classes)
         except Exception:

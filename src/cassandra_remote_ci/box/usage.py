@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import threading
@@ -42,10 +43,11 @@ def memory_bytes(text: str) -> int:
     return int(float(match.group(1)) * MEMORY_UNITS.get(match.group(2), 0)) if match else 0
 
 
-def add_sample(usage: dict, busy: float | None, memory: dict, now: float) -> dict:
-    """Return usage with the current CPU busy fraction and memory use, and with them added to its averages and peaks.
+def add_sample(usage: dict, busy: float | None, memory: dict, reserved: int, now: float) -> dict:
+    """Return usage with the current CPU busy fraction and memory use, and with them and the memory the running jobs
+    reserve added to its averages and peaks.
 
-    A sample missing either only updates the current values, so averages cover the same samples.
+    A sample missing the CPU or memory use only updates the current values, so averages cover the same samples.
     """
     usage = {**usage, "updated": now, **memory}
     if busy is not None:
@@ -53,13 +55,19 @@ def add_sample(usage: dict, busy: float | None, memory: dict, now: float) -> dic
     if busy is None or not memory:
         return usage
     samples = usage.get("samples", 0)
+
+    def average(key: str, value: float) -> float:
+        return (usage.get(key, 0) * samples + value) / (samples + 1)
+
     used = memory["memory_used"]
     return {
         **usage,
-        "cpu_average": (usage.get("cpu_average", 0.0) * samples + busy) / (samples + 1),
+        "cpu_average": average("cpu_average", busy),
         "cpu_peak": max(usage.get("cpu_peak", 0.0), busy),
-        "memory_average": round((usage.get("memory_average", 0) * samples + used) / (samples + 1)),
+        "memory_average": round(average("memory_average", used)),
         "memory_peak": max(usage.get("memory_peak", 0), used),
+        "reserved_average": round(average("reserved_average", reserved)),
+        "reserved_peak": max(usage.get("reserved_peak", 0), reserved),
         "samples": samples + 1,
     }
 
@@ -71,16 +79,21 @@ class Sampler:
     def __init__(self, path: Path):
         self.path = path
         self.lock = threading.Lock()
-        self.watched: set[Path] = set()
+        self.watched: dict[Path, int] = {}
         self.peaks: dict[Path, int] = {}
 
-    def watch(self, work_dir: Path) -> None:
+    def watch(self, work_dir: Path, memory: int) -> None:
+        """Sample the containers of a job or part that reserves memory bytes."""
         with self.lock:
-            self.watched.add(work_dir)
+            self.watched[work_dir] = memory
 
     def unwatch(self, work_dir: Path) -> None:
         with self.lock:
-            self.watched.discard(work_dir)
+            self.watched.pop(work_dir, None)
+
+    def reserved(self) -> int:
+        with self.lock:
+            return sum(self.watched.values())
 
     def peak_memory(self, work_dir: Path) -> int | None:
         """Return and forget the highest memory use sampled in the containers of a finished job or part."""
@@ -89,14 +102,14 @@ class Sampler:
 
     def run(self, stop: threading.Event, log: Callable[[str], None]) -> None:
         """Sample every SAMPLE_INTERVAL seconds until stop is set, adding to the averages of earlier attempts."""
-        previous, usage = cpu_times(), read_json(self.path, {})
+        previous, usage = cpu_times(), {**read_json(self.path, {}), "cpus": os.cpu_count()}
         while not stop.wait(SAMPLE_INTERVAL):
             try:
                 current, busy = cpu_times(), None
                 if previous and current and current[1] > previous[1]:
                     busy = (current[0] - previous[0]) / (current[1] - previous[1])
                 previous = current
-                usage = add_sample(usage, busy, memory_use(), time.time())
+                usage = add_sample(usage, busy, memory_use(), self.reserved(), time.time())
                 write_json(self.path, usage)
                 self.sample_containers()
             except Exception:

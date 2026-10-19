@@ -138,16 +138,17 @@ Log
 
     def test_box_usage_table(self):
         usage = {"cpu": 0.93, "cpu_average": 0.81, "memory_used": 61 * 2**30, "memory_total": 94 * 2**30}
-        data = {"usage": {**usage, "cpu_peak": 0.97, "memory_average": 25 * 2**30, "memory_peak": int(40.5 * 2**30)},
+        data = {"usage": {**usage, "cpu_peak": 0.97, "cpus": 16, "memory_average": 25 * 2**30,
+                          "memory_peak": int(40.5 * 2**30), "reserved_average": 52 * 2**30, "reserved_peak": 75 * 2**30},
                 "memory_budget": 86 * 2**30, "memory_reserved": 75 * 2**30}
 
         self.assertEqual(
             [
-                "BOX         NOW  AVERAGE   PEAK  TOTAL",
-                "========  =====  =======  =====  =====",
-                "CPU         93%      81%    97%      -",
-                "memory    61.0G    25.0G  40.5G  94.0G",
-                "reserved  75.0G        -      -  86.0G",
+                "BOX         NOW  AVERAGE   PEAK    TOTAL",
+                "========  =====  =======  =====  =======",
+                "CPU         93%      81%    97%  16 CPUs",
+                "memory    61.0G    25.0G  40.5G    94.0G",
+                "reserved  75.0G    52.0G  75.0G    86.0G",
             ],
             render.box_table(data),
         )
