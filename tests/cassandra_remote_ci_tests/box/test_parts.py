@@ -185,7 +185,7 @@ class RunInPartsTest(unittest.TestCase):
         data = progress.snapshot(PartsPlugin(), context_for(base_dir, info), files)
 
         self.assertAlmostEqual(80 + (60 + 600) / 3, data["eta"], delta=2)
-        self.assertNotIn("jobs done", render.render(data).splitlines()[0])
+        self.assertFalse([line for line in render.render(data).splitlines() if line.startswith("jobs ")])
 
 
 class CassandraPartsTest(unittest.TestCase):

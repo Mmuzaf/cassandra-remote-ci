@@ -7,45 +7,60 @@ Runs a project's test suite on a remote Linux box in docker and copies the resul
 ```bash
 maxim.muzafarov@Maxims-MacBook-Pro cassandra-remote-ci % make status
 uv run cassandra-remote-ci status -H ubuntu
-20261017-2258-cassandra-5182b2b-jdk17: running, elapsed 3h04m, eta ~9h30m, 48 of 196 jobs done, 5 running, unit active
-----------------------------------------------------------------------------------------------------------------------
+run      20261019-2006-cassandra-5182b2b-jdk17
+phase    running, unit active
+elapsed  1h31m, eta ~8h33m
+jobs     35 of 196 done, 8 running
 
-SLOT  JOB             PART  CLASSES  ELAPSED  LEFT  CONTAINER     STATE              CPU               MEM
-====  ==============  ====  =======  =======  ====  ============  =============  =======  ================
-   1  jvm-dtest_3_16     1       28      22m  ~23m  b44a3208d875  Up 22 minutes  325.53%  2.528GiB / 16GiB
-   2  jvm-dtest_4_16     1       28      18m  ~28m  3f96209ec449  Up 18 minutes  210.27%  2.286GiB / 16GiB
-   3  jvm-dtest_1_16     1       28      38m   ~4m  6326ee292dde  Up 38 minutes  271.32%  2.333GiB / 16GiB
-   4  jvm-dtest_5_16     1       28       5m  ~40m  5794d0e6a2e7  Up 5 minutes   180.22%  1.686GiB / 16GiB
-   5  jvm-dtest_2_16     1       28      31m  ~17m  bd0d64751644  Up 31 minutes  231.78%  1.814GiB / 16GiB
+BOX         NOW  AVERAGE  PEAK  TOTAL
+========  =====  =======  ====  =====
+CPU         82%      80%     -      -
+memory    17.2G        -     -  90.0G
+reserved  40.0G        -     -  82.0G
+
+SLOT  JOB                PART  CLASSES  ELAPSED  LEFT  CONTAINER     STATE              CPU              MEM
+====  =================  ====  =======  =======  ====  ============  =============  =======  ===============
+   1  test-latest_17_20     2       43       6m   ~5m  3f83245a168a  Up 6 minutes   209.80%   1.62GiB / 5GiB
+   2  test-latest_15_20     2       43       8m   ~3m  0bb9aa4e5ae5  Up 8 minutes   225.53%  939.3MiB / 5GiB
+   3  test-latest_17_20     1       44       6m   ~5m  7888e3ae6673  Up 6 minutes     4.74%  1.502GiB / 5GiB
+   4  test-latest_15_20     1       44       8m   ~2m  ce2053c6e3ea  Up 8 minutes   256.53%  1.602GiB / 5GiB
+   5  test-latest_13_20     1       87      10m   ~9m  3124df50ebad  Up 10 minutes  197.56%  1.519GiB / 5GiB
+   6  test-latest_16_20     1       44       7m   ~3m  942502feb8bd  Up 7 minutes    82.59%   2.11GiB / 5GiB
+   7  test-latest_16_20     2       43       6m   ~3m  5d1b39ee8983  Up 6 minutes   230.47%  1.371GiB / 5GiB
+   8  test-latest_14_20     1       87       9m  ~12m  645ff55c8271  Up 9 minutes   112.79%   1.72GiB / 5GiB
 
 GROUP                 JOBS      CLASSES           TESTS  FAIL  ERR  SKIP
 ==================  ======  ===========  ==============  ====  ===  ====
 fqltool-test           1/1            3          27/~27     0    0     0
 sstableloader-test     1/1            1          13/~13     0    0     0
-test                 20/20  1,842/1,842  17,188/~17,188     0    0    91
-test-latest          20/20  1,841/1,841  17,167/~17,167     0    0   262
+test                 20/20  1,738/1,738  17,188/~17,188     0    1    91
+test-latest          12/20  1,313/1,738  13,315/~17,167     0    0   203
 stress-test            1/1            8          22/~22     0    0     0
-test-burn              5/5        11/11          59/~59     0    0     1
-jvm-dtest             0/16       68/441        948/~702     0    1     7
-dtest                 0/64            0           0/~18     0    0     0
-dtest-latest          0/64            0           0/~18     0    0     0
+test-burn              0/5         0/11           0/~59     0    0     0
+jvm-dtest             0/16        0/441        0/~2,907     0    0     0
+dtest                 0/64            0        0/~1,107     0    0     0
+dtest-latest          0/64            0        0/~1,107     0    0     0
 microbench-test        0/4            0               0     0    0     0
 ------------------  ------  -----------  --------------  ----  ---  ----
-total               48/196  3,762/3,928          35,424     0    1   361
+total               35/196  3,051/3,928          30,565     0    1   294
 
-RECENT_FAILURE                                                                 STATUS  GROUP      JOB
-=============================================================================  ======  =========  ==============
-org.apache.cassandra.distributed.test.accord.NewSchemaTest.test-_jdk17_x86_64  error   jvm-dtest  jvm-dtest_1_16
+RECENT_FAILURE                                                             STATUS  GROUP  JOB
+=========================================================================  ======  =====  =========
+o.a.c.audit.AuditLoggerCleanupTest.testCleanupOfAuditLogDir-_jdk17_x86_64  error   test   test_6_20
 
 Activity
-  slot1  class org.apache.cassandra.distributed.test.cql3.MultiNodeTableWalkWithReadRepairTest
-  slot2  class org.apache.cassandra.distributed.test.accord.AccordRegainRangesTest
-  slot3  class org.apache.cassandra.distributed.test.log.mso.AllowIPChangeWithMoveTest
-  slot4  class org.apache.cassandra.distributed.test.IPMembershipTest
-  slot5  class org.apache.cassandra.distributed.test.cql3.MixedReadsAccordInteropMultiNodeTokenConflictTest
+  slot1  class o.a.c.tools.nodetool.NodetoolHelpCommandsOutputTest
+  slot2  class o.a.c.utils.memory.TrieMemtableShardLockDeadlockTest
+  slot3  class o.a.c.db.virtual.AccordDebugKeyspaceTest
+  slot4  class o.a.c.db.guardrails.GuardrailZstdCompressionLevelTest
+         [junit-timeout]
+  slot5  class o.a.c.index.sai.cql.types.collections.maps.MapKeysIntTest
+  slot6  class o.a.c.db.compaction.unified.ShardedCompactionWriterTest
+  slot7  class o.a.c.utils.concurrent.RefCountedTest
+  slot8  class o.a.c.index.CustomIndexTest
 
 Log
-  01:56:55 start jvm-dtest_5_16 part-1 with 28 classes in slot4
+  21:31:16 start test-latest_17_20 part-2 with 43 classes in slot1
 ```
 
 ## Requirements
@@ -125,6 +140,9 @@ make status
 ## Results
 
 `results/<RUN_ID>/`: `summary.md`, `failures.txt`, `crashed-jobs.txt`, `report/ci_summary.html`, logs of failed jobs.
+
+`summary.md` gives the box's average and peak CPU and memory use while jobs ran, sampled every 30 seconds into
+`usage.json` and carried on across retries. Status shows the averages so far.
 
 A crashed job exited non-zero without a failing test. `summary.md`, `crashed-jobs.txt`, `make failures` and the "Crashed jobs"
 table at the end of `ci_summary.html` give its cause: the first error the console log reports after the last Cassandra log

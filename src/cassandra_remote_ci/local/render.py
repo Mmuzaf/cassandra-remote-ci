@@ -7,6 +7,13 @@ from cassandra_remote_ci.shared.state import FINISHED_PHASES
 from cassandra_remote_ci.shared.units import duration, gigabytes
 
 INTERRUPTED_UNIT_STATES = ("inactive", "failed")
+SHORT_PACKAGES = {"org.apache.cassandra.": "o.a.c."}
+
+
+def shorten(text: str) -> str:
+    for package, short in SHORT_PACKAGES.items():
+        text = text.replace(package, short)
+    return text
 
 
 def _of(done: int, total: int | None, estimate: int | None = None) -> str:
@@ -39,17 +46,24 @@ def _left(item: dict) -> str:
     return f"~{duration(left)}" if left >= 0 else f"+{duration(-left)}"
 
 
-def box_line(data: dict) -> str:
+def box_table(data: dict) -> list[str]:
     """Return how busy the box's CPUs are and how much of its memory the jobs use and reserve, as far as known."""
     usage = data.get("usage") or {}
-    parts = []
+
+    def percent(key: str) -> str:
+        return f"{usage[key]:.0%}" if usage.get(key) is not None else "-"
+
+    def size(key: str) -> str:
+        return gigabytes(usage[key]) if usage.get(key) else "-"
+
+    rows = []
     if usage.get("cpu") is not None:
-        parts.append(f"CPU {usage['cpu']:.0%} busy, {usage['cpu_average']:.0%} on average")
+        rows.append(["CPU", percent("cpu"), percent("cpu_average"), percent("cpu_peak"), "-"])
     if usage.get("memory_total"):
-        parts.append(f"memory {gigabytes(usage['memory_used'])} of {gigabytes(usage['memory_total'])} used")
+        rows.append(["memory", size("memory_used"), size("memory_average"), size("memory_peak"), size("memory_total")])
     if data.get("memory_budget"):
-        parts.append(f"jobs reserve {gigabytes(data['memory_reserved'])} of the {gigabytes(data['memory_budget'])} budget")
-    return f"box: {', '.join(parts)}" if parts else ""
+        rows.append(["reserved", gigabytes(data["memory_reserved"]), "-", "-", gigabytes(data["memory_budget"])])
+    return table(["BOX", "NOW", "AVERAGE", "PEAK", "TOTAL"], rows, right={1, 2, 3, 4}) if rows else []
 
 
 def _block(title: str, rows: list[tuple[str, str]]) -> list[str]:
@@ -63,17 +77,21 @@ def render(data: dict, unit: str | None = None) -> str:
     jobs = data["jobs"]
     live = data["phase"] not in FINISHED_PHASES
     interrupted = live and unit in INTERRUPTED_UNIT_STATES
-    summary = ["interrupted" if interrupted else data["phase"], f"elapsed {duration(data['elapsed'])}"]
-    if data.get("eta") and live and not interrupted:
-        summary.append(f"eta ~{duration(data['eta'])}")
-    summary += [f"{jobs['done']} of {jobs['total']} jobs done"] if jobs["total"] else []
-    summary += [f"{len(jobs['running'])} {'interrupted' if interrupted else 'running'}"] if jobs["running"] else []
-    summary += [f"{jobs['crashed']} crashed"] if jobs["crashed"] else []
-    summary += [f"unit {unit}"] if unit else []
-    header = f"{data['run_id']}: {', '.join(summary)}"
-    lines = [header, "-" * len(header)]
-    if data["phase"] == "running" and not interrupted:
-        lines += [line for line in [box_line(data)] if line]
+    phase = "interrupted" if interrupted else data["phase"]
+    elapsed = [duration(data["elapsed"])]
+    elapsed += [f"eta ~{duration(data['eta'])}"] if data.get("eta") and live and not interrupted else []
+    counts = [f"{jobs['done']} of {jobs['total']} done"]
+    counts += [f"{len(jobs['running'])} {'interrupted' if interrupted else 'running'}"] if jobs["running"] else []
+    counts += [f"{jobs['crashed']} crashed"] if jobs["crashed"] else []
+    facts = [
+        ("run", data["run_id"]),
+        ("phase", f"{phase}, unit {unit}" if unit else phase),
+        ("elapsed", ", ".join(elapsed)),
+        *([("jobs", ", ".join(counts))] if jobs["total"] else []),
+    ]
+    lines = [f"{label:<9}{value}" for label, value in facts]
+    box = box_table(data) if data["phase"] == "running" and not interrupted else []
+    lines += ["", *box] if box else []
 
     if interrupted:
         lines += _block("Interrupted", [("", "the run's unit stopped before the run finished, e.g. on a reboot; "
@@ -117,16 +135,16 @@ def render(data: dict, unit: str | None = None) -> str:
         lines += ["", *table(headers, cells, right={1, 2, 3, 4, 5, 6}, total=total)]
 
     if data.get("recent"):
-        recent = [[item["test"], item["status"], item["group"], item["job"]] for item in data["recent"]]
+        recent = [[shorten(item["test"]), item["status"], item["group"], item["job"]] for item in data["recent"]]
         lines += ["", *table(["RECENT_FAILURE", "STATUS", "GROUP", "JOB"], recent, right=set())]
 
     activity = [
-        (f"slot{item['slot']}" if index == 0 else "", line)
+        (f"slot{item['slot']}" if index == 0 else "", shorten(line))
         for item in sorted(jobs["running"], key=lambda item: item["slot"])
         for index, line in enumerate(item.get("activity", []))
     ]
     if activity:
         lines += _block("Activity", activity)
     if data.get("log"):
-        lines += _block("Log", [("", data["log"])])
+        lines += _block("Log", [("", shorten(data["log"]))])
     return "\n".join(lines)

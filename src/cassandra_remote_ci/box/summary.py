@@ -82,6 +82,26 @@ def write_failures(files: RunFiles, failures: list[dict], crashed: list[dict]) -
     files.crashed.write_text("".join(_crash_line(item) + "\n" for item in crashed))
 
 
+def usage_table(usage: dict) -> list[str]:
+    """Return how busy the box's CPUs and memory were while jobs ran, as far as usage.json knows."""
+    if usage.get("cpu_average") is None:
+        return []
+
+    def percent(key: str) -> str:
+        return f"{usage[key]:.0%}" if usage.get(key) is not None else "-"
+
+    def size(key: str) -> str:
+        return gigabytes(usage[key]) if usage.get(key) else "-"
+
+    return [
+        "",
+        "| box while jobs ran | average | peak | total |",
+        "|---|---|---|---|",
+        f"| CPU | {percent('cpu_average')} | {percent('cpu_peak')} | - |",
+        f"| memory | {size('memory_average')} | {size('memory_peak')} | {size('memory_total')} |",
+    ]
+
+
 def write_summary(files: RunFiles, snapshot: dict, failures: list[dict], crashed: list[dict]) -> None:
     info = read_json(files.info, {})
     write_json(
@@ -96,9 +116,7 @@ def write_summary(files: RunFiles, snapshot: dict, failures: list[dict], crashed
         f"{' with uncommitted changes' if info.get('dirty') else ''}.",
         f"Phase {snapshot['phase']}, elapsed {duration(snapshot['elapsed'])}.",
     ]
-    usage = read_json(files.usage, {})
-    if usage.get("cpu_average") is not None:
-        lines.append(f"The box's CPUs were {usage['cpu_average']:.0%} busy on average while jobs ran.")
+    lines += usage_table(read_json(files.usage, {}))
     lines += [
         "",
         "| group | jobs | classes | tests | failures | errors | skipped | memory | peak memory |",

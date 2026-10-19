@@ -11,7 +11,7 @@ import traceback
 from pathlib import Path
 from typing import Callable
 
-from cassandra_remote_ci.shared.state import write_json
+from cassandra_remote_ci.shared.state import read_json, write_json
 
 SAMPLE_INTERVAL = 30
 MEMORY_UNITS = {"B": 1, "kB": 10**3, "MB": 10**6, "GB": 10**9, "KiB": 2**10, "MiB": 2**20, "GiB": 2**30, "TiB": 2**40}
@@ -42,6 +42,28 @@ def memory_bytes(text: str) -> int:
     return int(float(match.group(1)) * MEMORY_UNITS.get(match.group(2), 0)) if match else 0
 
 
+def add_sample(usage: dict, busy: float | None, memory: dict, now: float) -> dict:
+    """Return usage with the current CPU busy fraction and memory use, and with them added to its averages and peaks.
+
+    A sample missing either only updates the current values, so averages cover the same samples.
+    """
+    usage = {**usage, "updated": now, **memory}
+    if busy is not None:
+        usage["cpu"] = busy
+    if busy is None or not memory:
+        return usage
+    samples = usage.get("samples", 0)
+    used = memory["memory_used"]
+    return {
+        **usage,
+        "cpu_average": (usage.get("cpu_average", 0.0) * samples + busy) / (samples + 1),
+        "cpu_peak": max(usage.get("cpu_peak", 0.0), busy),
+        "memory_average": round((usage.get("memory_average", 0) * samples + used) / (samples + 1)),
+        "memory_peak": max(usage.get("memory_peak", 0), used),
+        "samples": samples + 1,
+    }
+
+
 class Sampler:
     """Writes the box's CPU and memory use to a usage.json, and keeps the highest memory use of the containers of
     each watched job or part, keyed by its work directory."""
@@ -66,17 +88,15 @@ class Sampler:
             return self.peaks.pop(work_dir, None)
 
     def run(self, stop: threading.Event, log: Callable[[str], None]) -> None:
-        """Sample every SAMPLE_INTERVAL seconds until stop is set."""
-        previous, busy_sum, samples = cpu_times(), 0.0, 0
+        """Sample every SAMPLE_INTERVAL seconds until stop is set, adding to the averages of earlier attempts."""
+        previous, usage = cpu_times(), read_json(self.path, {})
         while not stop.wait(SAMPLE_INTERVAL):
             try:
-                usage = {"updated": time.time(), **memory_use()}
-                current = cpu_times()
+                current, busy = cpu_times(), None
                 if previous and current and current[1] > previous[1]:
                     busy = (current[0] - previous[0]) / (current[1] - previous[1])
-                    busy_sum, samples = busy_sum + busy, samples + 1
-                    usage.update(cpu=busy, cpu_average=busy_sum / samples)
                 previous = current
+                usage = add_sample(usage, busy, memory_use(), time.time())
                 write_json(self.path, usage)
                 self.sample_containers()
             except Exception:

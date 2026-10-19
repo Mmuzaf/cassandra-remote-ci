@@ -61,8 +61,10 @@ class RenderTest(unittest.TestCase):
 
         self.assertEqual(
             """\
-r1: running, elapsed 11m, eta ~7m, 2 of 4 jobs done, 2 running, unit active
----------------------------------------------------------------------------
+run      r1
+phase    running, unit active
+elapsed  11m, eta ~7m
+jobs     2 of 4 done, 2 running
 
 SLOT  JOB             PART  CLASSES  ELAPSED  LEFT  CONTAINER     STATE            CPU               MEM
 ====  ==============  ====  =======  =======  ====  ============  =============  =====  ================
@@ -81,14 +83,32 @@ RECENT_FAILURE  STATUS   GROUP      JOB
 FooTest.bar     failure  jvm-dtest  jvm-dtest_1_16
 
 Activity
-  slot2  class org.apache.cassandra.FooTest
+  slot2  class o.a.c.FooTest
          [junit-timeout] Node started
-  slot3  class org.apache.cassandra.distributed.test.ReadSpeculationTest
+  slot3  class o.a.c.distributed.test.ReadSpeculationTest
 
 Log
   19:40:07 end fqltool-test_1_1 exit 0 in 55s, 27 tests, 0 failures, 0 errors""",
             render.render(data, "active"),
         )
+
+    def test_cassandra_packages_are_shortened(self):
+        data = {
+            "run_id": "r1",
+            "phase": "running",
+            "elapsed": 60,
+            "log": "21:30:00 start org.apache.cassandra.db.compaction.TTLExpiryTest",
+            "jobs": {"done": 0, "total": 1, "crashed": 0, "running": []},
+            "groups": [],
+            "recent": [{"group": "test", "test": "org.apache.cassandra.db.compaction.TTLExpiryTest.testAggressiveFullCompaction",
+                        "status": "failure", "job": "test_1_20"}],
+        }
+
+        text = render.render(data)
+
+        self.assertIn("o.a.c.db.compaction.TTLExpiryTest.testAggressiveFullCompaction  failure", text)
+        self.assertIn("21:30:00 start o.a.c.db.compaction.TTLExpiryTest", text)
+        self.assertNotIn("org.apache.cassandra", text)
 
     def test_a_run_whose_unit_stopped_before_it_finished_is_interrupted(self):
         data = {
@@ -109,18 +129,30 @@ Log
 
         lines = render.render(data, "inactive").splitlines()
 
-        self.assertEqual("r1: interrupted, elapsed 6h49m, 77 of 196 jobs done, 1 interrupted, unit inactive", lines[0])
-        self.assertFalse([line for line in lines if line.startswith("box:")])
+        self.assertEqual(["run      r1", "phase    interrupted, unit inactive", "elapsed  6h49m",
+                          "jobs     77 of 196 done, 1 interrupted"], lines[:4])
+        self.assertFalse([line for line in lines if line.startswith("BOX ")])
         self.assertIn("  the run's unit stopped before the run finished, e.g. on a reboot; "
                       "'retry' runs the interrupted and remaining jobs", lines)
-        self.assertIn("running, elapsed", render.render(data, "active").splitlines()[0])
+        self.assertEqual("phase    running, unit active", render.render(data, "active").splitlines()[1])
 
-    def test_box_usage_line(self):
-        data = {"usage": {"cpu": 0.93, "cpu_average": 0.81, "memory_used": 61 * 2**30, "memory_total": 94 * 2**30},
+    def test_box_usage_table(self):
+        usage = {"cpu": 0.93, "cpu_average": 0.81, "memory_used": 61 * 2**30, "memory_total": 94 * 2**30}
+        data = {"usage": {**usage, "cpu_peak": 0.97, "memory_average": 25 * 2**30, "memory_peak": int(40.5 * 2**30)},
                 "memory_budget": 86 * 2**30, "memory_reserved": 75 * 2**30}
-        self.assertEqual("box: CPU 93% busy, 81% on average, memory 61.0G of 94.0G used, "
-                         "jobs reserve 75.0G of the 86.0G budget", render.box_line(data))
-        self.assertEqual("", render.box_line({}))
+
+        self.assertEqual(
+            [
+                "BOX         NOW  AVERAGE   PEAK  TOTAL",
+                "========  =====  =======  =====  =====",
+                "CPU         93%      81%    97%      -",
+                "memory    61.0G    25.0G  40.5G  94.0G",
+                "reserved  75.0G        -      -  86.0G",
+            ],
+            render.box_table(data),
+        )
+        self.assertEqual("memory  61.0G        -     -  94.0G", render.box_table({"usage": usage})[-1])
+        self.assertEqual([], render.box_table({}))
 
 
 OLD_BOX_SNAPSHOT = {
@@ -159,7 +191,8 @@ class ShowStatusTest(unittest.TestCase):
         self.assertEqual([["status", "r1", "--json"]], calls)
         text = out.getvalue()
         self.assertTrue(text.startswith(
-            "20261017-1955-cassandra-5182b2b-jdk17: running, elapsed 19m, 2 of 4 jobs done, 1 running, unit active\n"
+            "run      20261017-1955-cassandra-5182b2b-jdk17\nphase    running, unit active\nelapsed  19m\n"
+            "jobs     2 of 4 done, 1 running\n"
         ))
         self.assertIn("   2  jvm-dtest_1_16     -        -      18m     -  ab12cd34ef56  Up 18 minutes  3.06%", text)
         self.assertIn("jvm-dtest   0/2   34/441    231     0    0     5", text)
