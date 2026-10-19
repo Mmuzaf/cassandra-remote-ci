@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="org.example.MixedTest" tests="4" failures="1" errors="1" skipped="1">
+  <testcase classname="org.example.MixedTest" name="passes" time="0.1"/>
+  <testcase classname="org.example.MixedTest" name="fails" time="0.2">
+    <failure message="expected 1 but was 2" type="junit.framework.AssertionFailedError">stack</failure>
+  </testcase>
+  <testcase classname="org.example.MixedTest" name="errors" time="0.3">
+    <error message="NullPointerException" type="java.lang.NullPointerException">stack</error>
+  </testcase>
+  <testcase classname="org.example.MixedTest" name="skips" time="0.0">
+    <skipped/>
+  </testcase>
+</testsuite>

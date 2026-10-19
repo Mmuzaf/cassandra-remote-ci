@@ -1,0 +1,18 @@
+[project]
+name = "cassandra-remote-ci"
+version = "0.1.0"
+description = "Runs a project's test suite on a remote Linux box in docker and copies the results back."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+cassandra-remote-ci = "cassandra_remote_ci.local.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cassandra_remote_ci"]

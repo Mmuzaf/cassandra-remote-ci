@@ -1,0 +1,55 @@
+// Trimmed from apache/cassandra .jenkins/Jenkinsfile: the profiles and the test splits.
+
+@NonCPS
+def pipelineProfiles() {
+  return [
+    'packaging': ['artifacts', 'lint', 'debian', 'redhat'],
+    'skinny': ['lint', 'cqlsh-test', 'test', 'jvm-dtest', 'simulator-dtest', 'dtest'],
+    'pre-commit': ['artifacts', 'lint', 'debian', 'redhat', 'fqltool-test', 'sstableloader-test', 'cqlsh-test', 'test', 'test-latest', 'stress-test', 'test-burn', 'jvm-dtest', 'simulator-dtest', 'dtest', 'dtest-latest', 'microbench-test'],
+    'pre-commit w/ upgrades': ['artifacts', 'lint', 'debian', 'redhat', 'fqltool-test', 'sstableloader-test', 'cqlsh-test', 'test', 'test-latest', 'stress-test', 'test-burn', 'jvm-dtest', 'jvm-dtest-upgrade', 'simulator-dtest', 'dtest', 'dtest-novnode', 'dtest-latest', 'dtest-upgrade', 'microbench-test'],
+    'post-commit': ['artifacts', 'lint', 'debian', 'redhat', 'fqltool-test', 'sstableloader-test', 'cqlsh-test', 'test-cdc', 'test', 'test-latest', 'test-compression', 'stress-test', 'test-burn', 'long-test', 'test-oa', 'test-system-keyspace-directory', 'jvm-dtest', 'jvm-dtest-upgrade', 'simulator-dtest', 'dtest', 'dtest-novnode', 'dtest-latest', 'dtest-large', 'dtest-large-novnode', 'dtest-large-latest', 'dtest-upgrade', 'dtest-upgrade-novnode', 'dtest-upgrade-large', 'dtest-upgrade-large-novnode', 'microbench-test'],
+    'performance': ['microbench'],
+    'custom': []
+  ]
+}
+
+
+def tasks() {
+  def testSteps = [
+     // Each splits size need to be high enough to avoid the one hour per split timeout,
+     //  and low enough so test time is factors more than  the setup+build time in each split.
+     // Splits can also be poorly balanced: splitting or renaming test classes is the best tactic.
+     // On unsaturated systems 10 minutes per split is optimal, higher with saturation
+     //   (some buffer on the heaviest split under the 1h max is required, ref `timeout(…)` in `test(…)`)
+    'cqlsh-test': [splits: 1],
+    'fqltool-test': [splits: 1, size: 'small'],
+    'sstableloader-test': [splits: 1, size: 'small'],
+    'test-cdc': [splits: 20],
+    'test': [splits: 20],
+    'test-latest': [splits: 20],
+    'test-compression': [splits: 20],
+    'stress-test': [splits: 1, size: 'small'],
+    'test-burn': [splits: 5],
+    'long-test': [splits: 4],
+    'test-oa': [splits: 20],
+    'test-system-keyspace-directory': [splits: 20],
+    'jvm-dtest': [splits: 16],
+    'jvm-dtest-upgrade': [splits: 6],
+    'simulator-dtest': [splits: 2, size: 'large'],
+    'dtest': [splits: 64, size: 'large'],
+    'dtest-novnode': [splits: 64, size: 'large'],
+    'dtest-latest': [splits: 64, size: 'large'],
+    'dtest-large': [splits: 6, size: 'large'],
+    'dtest-large-novnode': [splits: 6, size: 'large'],
+    'dtest-large-latest': [splits: 6, size: 'large'],
+    'dtest-upgrade': [splits: 160, size: 'large'],
+    'dtest-upgrade-novnode': [splits: 160, size: 'large'],
+    'dtest-upgrade-large': [splits: 40, size: 'large'],
+    'dtest-upgrade-large-novnode': [splits: 40, size: 'large'],
+    'microbench-test': [splits: 4, size: 'large', timeout_hours: 2],
+    // performance tests need 'cassandra-*large-dedicated' nodes
+    'microbench': [splits: 4, size: 'large', timeout_hours: 6, benchmark: true],
+  ]
+  testSteps.each() {
+  }
+}
